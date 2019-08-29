@@ -73,6 +73,9 @@ pub trait DemOp {
     fn set_input(&mut self, name: &str, to: OpIn, as_default: bool) -> bool;
     fn exec(&mut self, t: f32, regs: &mut [f32]);
 
+    fn does_render(&self) -> bool { false }
+    fn render(&mut self, samples: usize, bufs: Vec<[Vec<f32>; 2]>) { }
+
     fn input_count(&self) -> usize { self.io_spec(0).inputs.len() }
     fn output_count(&self) -> usize { self.io_spec(0).outputs.len() }
 
@@ -242,6 +245,7 @@ pub struct OpGroup {
 #[derive(Debug, PartialEq, Clone)]
 pub struct OpInfo {
     pub name:  String,
+    pub does_render: bool,
     pub group: OpGroup,
 }
 
@@ -363,6 +367,7 @@ pub struct Simulator {
     pub ops:                Vec<Box<dyn DemOp>>,
     pub op_infos:           Vec<OpInfo>,
     pub op_groups:          Vec<OpGroup>,
+    pub group_op_refs:      Vec<Vec<usize>>,
     pub sample_row:         SampleRow,
     pub scope_sample_len:   usize,
     pub scope_sample_pos:   usize,
@@ -375,6 +380,7 @@ impl Simulator {
             ops:                Vec::new(),
             op_groups:          Vec::new(),
             op_infos:           Vec::new(),
+            group_op_refs:      Vec::new(),
             sample_row:         SampleRow::new(),
             scope_sample_len:   128, // SCOPE_SAMPLES
             scope_sample_pos:   0,
@@ -403,6 +409,7 @@ impl Simulator {
 
     pub fn add_group(&mut self, name: &str) -> usize {
         self.op_groups.push(OpGroup { name: name.to_string(), index: self.op_groups.len() });
+        self.group_op_refs.push(Vec::new());
         self.op_groups.len() - 1
     }
 
@@ -435,9 +442,11 @@ impl Simulator {
 
         self.op_infos.push(OpInfo {
             name: op_name,
+            does_render: op.does_render(),
             group: self.op_groups[group_index].clone()
         });
         self.ops.push(op);
+        self.group_op_refs[group_index].push(self.ops.len() - 1);
 
         out_reg
     }
