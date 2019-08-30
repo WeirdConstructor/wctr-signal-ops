@@ -42,31 +42,31 @@ impl OpIn {
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
-pub struct DemOpPort {
+pub struct OpPort {
     pub min: f32,
     pub max: f32,
     pub name: String,
 }
 
-impl DemOpPort {
+impl OpPort {
     pub fn new(name: &str, min: f32, max: f32) -> Self {
-        DemOpPort { name: name.to_string(), min, max }
+        OpPort { name: name.to_string(), min, max }
     }
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
-pub struct DemOpIOSpec {
+pub struct OpIOSpec {
     pub index:              usize,
-    pub inputs:             Vec<DemOpPort>,
+    pub inputs:             Vec<OpPort>,
     pub input_values:       Vec<OpIn>,
     pub input_defaults:     Vec<OpIn>,
     pub audio_out_groups:   Vec<usize>,
-    pub outputs:            Vec<DemOpPort>,
+    pub outputs:            Vec<OpPort>,
     pub output_regs:        Vec<usize>,
 }
 
-pub trait DemOp {
-    fn io_spec(&self, index: usize) -> DemOpIOSpec;
+pub trait Op {
+    fn io_spec(&self, index: usize) -> OpIOSpec;
 
     fn init_regs(&mut self, start_reg: usize, regs: &mut [f32]);
 
@@ -118,7 +118,7 @@ pub enum SimulatorUIInput {
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum SimulatorUIEvent {
-    OpSpecUpdate(Vec<(DemOpIOSpec, OpInfo)>),
+    OpSpecUpdate(Vec<(OpIOSpec, OpInfo)>),
     SerializedInputValues(Vec<(String, Vec<(String, OpIn)>)>),
 }
 
@@ -223,7 +223,7 @@ impl SimulatorCommunicator {
 
 pub struct Simulator {
     pub regs:               Vec<f32>,
-    pub ops:                Vec<Box<dyn DemOp>>,
+    pub ops:                Vec<Box<dyn Op>>,
     pub op_infos:           Vec<OpInfo>,
     pub op_groups:          Vec<OpGroup>,
     pub render_groups:      Vec<Vec<usize>>,
@@ -272,7 +272,7 @@ impl Simulator {
         self.op_groups.len() - 1
     }
 
-    pub fn get_specs(&self) -> Vec<(DemOpIOSpec, OpInfo)> {
+    pub fn get_specs(&self) -> Vec<(OpIOSpec, OpInfo)> {
         self.ops
             .iter()
             .enumerate()
@@ -292,7 +292,7 @@ impl Simulator {
         }
     }
 
-    pub fn add_op(&mut self, mut op: Box<dyn DemOp>, op_name: String, group_index: usize) -> Option<usize> {
+    pub fn add_op(&mut self, mut op: Box<dyn Op>, op_name: String, group_index: usize) -> Option<usize> {
         let new_start_reg = self.regs.len();
         let new_reg_count = self.regs.len() + op.output_count();
         self.regs.resize(new_reg_count, 0.0);

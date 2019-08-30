@@ -1,4 +1,4 @@
-use crate::signals::{OpIn, DemOp, DemOpPort, DemOpIOSpec};
+use crate::signals::{OpIn, Op, OpPort, OpIOSpec};
 
 pub struct OutProxy {
     pub values:   std::rc::Rc<std::cell::RefCell<Vec<f32>>>,
@@ -14,15 +14,15 @@ impl OutProxy {
     }
 }
 
-impl DemOp for OutProxy {
-    fn io_spec(&self, index: usize) -> DemOpIOSpec {
-        DemOpIOSpec {
+impl Op for OutProxy {
+    fn io_spec(&self, index: usize) -> OpIOSpec {
+        OpIOSpec {
             inputs:         vec![],
             input_values:   vec![],
             input_defaults: vec![],
             outputs:        self.values.borrow().iter().enumerate()
                                        .map(|(i, _v)|
-                                            DemOpPort::new(&format!("out{}", i), -9999.0, 9999.0))
+                                            OpPort::new(&format!("out{}", i), -9999.0, 9999.0))
                                        .collect(),
             output_regs:    self.out_regs.clone(),
             audio_out_groups: vec![],

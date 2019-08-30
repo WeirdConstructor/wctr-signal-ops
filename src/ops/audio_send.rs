@@ -1,4 +1,4 @@
-use crate::signals::{OpIn, DemOp, DemOpPort, DemOpIOSpec};
+use crate::signals::{OpIn, Op, OpPort, OpIOSpec};
 
 pub struct AudioSend {
         volume_l: OpIn,
@@ -20,12 +20,12 @@ impl AudioSend {
     }
 }
 
-impl DemOp for AudioSend {
-    fn io_spec(&self, index: usize) -> DemOpIOSpec {
-        DemOpIOSpec {
+impl Op for AudioSend {
+    fn io_spec(&self, index: usize) -> OpIOSpec {
+        OpIOSpec {
             inputs: vec![
-                DemOpPort::new("vol_l", 0.0, 1.0),
-                DemOpPort::new("vol_r", 0.0, 1.0),
+                OpPort::new("vol_l", 0.0, 1.0),
+                OpPort::new("vol_r", 0.0, 1.0),
             ],
             input_values:     vec![self.volume_l, self.volume_r],
             input_defaults:   vec![OpIn::Constant(1.0), OpIn::Constant(1.0)],
