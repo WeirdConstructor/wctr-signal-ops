@@ -65,6 +65,11 @@ pub struct OpIOSpec {
     pub output_regs:        Vec<usize>,
 }
 
+pub enum Event {
+    NoteOn(u8),
+    NoteOff,
+}
+
 pub trait Op {
     fn io_spec(&self, index: usize) -> OpIOSpec;
 
@@ -76,6 +81,7 @@ pub trait Op {
 
     fn does_render(&self) -> bool { false }
     fn render(&mut self, _num_samples: usize, _offs: usize, _input_idx: usize, _bufs: &mut Vec<[Vec<f32>; 2]>) { }
+    fn event(&mut self, _ev: &Event) { }
 
     fn input_count(&self) -> usize { self.io_spec(0).inputs.len() }
     fn output_count(&self) -> usize { self.io_spec(0).outputs.len() }
@@ -350,7 +356,7 @@ impl Simulator {
         }
     }
 
-    pub fn get_group_sample_buffers(&self, size: usize) -> Vec<[Vec<f32>; 2]> {
+    pub fn new_group_sample_buffers(&self, size: usize) -> Vec<[Vec<f32>; 2]> {
         let mut v : Vec<[Vec<f32>; 2]> = Vec::with_capacity(self.op_groups.len());
         for _ in self.op_groups.iter() {
             let mut n : Vec<f32> = Vec::new();
@@ -360,6 +366,12 @@ impl Simulator {
             v.push([n, n2]);
         }
         v
+    }
+
+    pub fn event(&mut self, group_idx: usize, event: &Event) {
+        for i in self.render_groups[group_idx].iter() {
+            self.ops[*i].event(event);
+        }
     }
 
     pub fn render(&mut self, num_samples: usize, sample_offs: usize,
