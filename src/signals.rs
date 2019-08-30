@@ -60,6 +60,7 @@ pub struct DemOpIOSpec {
     pub inputs:             Vec<DemOpPort>,
     pub input_values:       Vec<OpIn>,
     pub input_defaults:     Vec<OpIn>,
+    pub audio_out_groups:   Vec<usize>,
     pub outputs:            Vec<DemOpPort>,
     pub output_regs:        Vec<usize>,
 }
@@ -74,7 +75,7 @@ pub trait DemOp {
     fn exec(&mut self, t: f32, regs: &mut [f32]);
 
     fn does_render(&self) -> bool { false }
-    fn render(&mut self, samples: usize, bufs: Vec<[Vec<f32>; 2]>) { }
+    fn render(&mut self, _num_samples: usize, _offs: usize, _input_idx: usize, _bufs: &mut Vec<[Vec<f32>; 2]>) { }
 
     fn input_count(&self) -> usize { self.io_spec(0).inputs.len() }
     fn output_count(&self) -> usize { self.io_spec(0).outputs.len() }
@@ -93,148 +94,6 @@ pub trait DemOp {
         vals
     }
 }
-
-pub struct DoOutProxy {
-    pub values:   std::rc::Rc<std::cell::RefCell<Vec<f32>>>,
-    out_regs: Vec<usize>,
-}
-
-impl DoOutProxy {
-    pub fn new(num_outputs: usize) -> Self {
-        DoOutProxy {
-            values: std::rc::Rc::new(std::cell::RefCell::new(vec![0.0; num_outputs])),
-            out_regs: vec![0; num_outputs],
-        }
-    }
-}
-
-impl DemOp for DoOutProxy {
-    fn io_spec(&self, index: usize) -> DemOpIOSpec {
-        DemOpIOSpec {
-            inputs:         vec![],
-            input_values:   vec![],
-            input_defaults: vec![],
-            outputs:        self.values.borrow().iter().enumerate()
-                                       .map(|(i, _v)|
-                                            DemOpPort::new(&format!("out{}", i), -9999.0, 9999.0))
-                                       .collect(),
-            output_regs:    self.out_regs.clone(),
-            index,
-        }
-    }
-
-    fn init_regs(&mut self, start_reg: usize, regs: &mut [f32]) {
-        for (i, o) in self.out_regs.iter_mut().enumerate() {
-            *o = i + start_reg;
-            regs[*o] = 0.0;
-        }
-    }
-
-    fn get_output_reg(&mut self, name: &str) -> Option<usize> {
-        for i in 0..self.out_regs.len() {
-            if name == format!("out{}", i) {
-                return Some(self.out_regs[i])
-            }
-        }
-
-        None
-    }
-
-    fn set_input(&mut self, _name: &str, _to: OpIn, _as_default: bool) -> bool {
-        false
-    }
-
-    fn exec(&mut self, _t: f32, regs: &mut [f32]) {
-        let v = self.values.borrow();
-        for (i, or) in self.out_regs.iter().enumerate() {
-            regs[*or] = v[i];
-        }
-    }
-}
-
-pub struct DoSin {
-    values:   [OpIn; 4],
-    defaults: [OpIn; 4],
-    out:      usize,
-}
-
-impl DoSin {
-    pub fn new() -> Self {
-        let defs = [
-            OpIn::Constant(1.0),
-            OpIn::Constant(0.0),
-            OpIn::Constant(0.0),
-            OpIn::Constant(9.1),
-        ];
-        DoSin {
-            values:   defs,
-            out:      0,
-            defaults: [
-                OpIn::Constant(1.0),
-                OpIn::Constant(0.0),
-                OpIn::Constant(0.0),
-                OpIn::Constant(1.0)
-            ],
-        }
-    }
-}
-
-// TODO: Define a DoOutProxy that provides access to a shared vector of values
-//       that will be directly written by the tracker to.
-
-impl DemOp for DoSin {
-    fn io_spec(&self, index: usize) -> DemOpIOSpec {
-        DemOpIOSpec {
-            inputs: vec![
-                DemOpPort::new("amp",    0.0, 9999.0),
-                DemOpPort::new("phase", -2.0 * std::f32::consts::PI,
-                                         2.0 * std::f32::consts::PI),
-                DemOpPort::new("vert",  -9999.0,  9999.0),
-                DemOpPort::new("freq",      0.0, 11025.0),
-            ],
-            input_values: self.values.to_vec(),
-            input_defaults: self.defaults.to_vec(),
-            outputs: vec![
-                DemOpPort::new("out", -9999.0, 9999.0),
-            ],
-            output_regs: vec![self.out],
-            index,
-        }
-    }
-
-    fn init_regs(&mut self, start_reg: usize, regs: &mut [f32]) {
-        regs[start_reg] = 0.0;
-        self.out = start_reg;
-    }
-
-    fn get_output_reg(&mut self, name: &str) -> Option<usize> {
-        match name {
-            "out"   => Some(self.out),
-            _       => None,
-        }
-    }
-
-    fn set_input(&mut self, name: &str, to: OpIn, as_default: bool) -> bool {
-        let s = if as_default { &mut self.defaults } else { &mut self.values };
-        match name {
-            "amp"   => { s[0] = to; true },
-            "phase" => { s[1] = to; true },
-            "vert"  => { s[2] = to; true },
-            "freq"  => { s[3] = to; true },
-            _       => false,
-        }
-    }
-
-    fn exec(&mut self, t: f32, regs: &mut [f32]) {
-        let a = self.values[0].calc(regs);
-        let p = self.values[1].calc(regs);
-        let v = self.values[2].calc(regs);
-        let f = self.values[3].calc(regs);
-        regs[self.out] = a * (((f * t) + p).sin() + v);
-        //d// println!("OUT: {}, {}", regs[self.out], self.out);
-    }
-}
-
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct OpGroup {
@@ -367,7 +226,7 @@ pub struct Simulator {
     pub ops:                Vec<Box<dyn DemOp>>,
     pub op_infos:           Vec<OpInfo>,
     pub op_groups:          Vec<OpGroup>,
-    pub group_op_refs:      Vec<Vec<usize>>,
+    pub render_groups:      Vec<Vec<usize>>,
     pub sample_row:         SampleRow,
     pub scope_sample_len:   usize,
     pub scope_sample_pos:   usize,
@@ -380,7 +239,7 @@ impl Simulator {
             ops:                Vec::new(),
             op_groups:          Vec::new(),
             op_infos:           Vec::new(),
-            group_op_refs:      Vec::new(),
+            render_groups:      Vec::new(),
             sample_row:         SampleRow::new(),
             scope_sample_len:   128, // SCOPE_SAMPLES
             scope_sample_pos:   0,
@@ -409,7 +268,7 @@ impl Simulator {
 
     pub fn add_group(&mut self, name: &str) -> usize {
         self.op_groups.push(OpGroup { name: name.to_string(), index: self.op_groups.len() });
-        self.group_op_refs.push(Vec::new());
+        self.render_groups.push(Vec::new());
         self.op_groups.len() - 1
     }
 
@@ -446,18 +305,9 @@ impl Simulator {
             group: self.op_groups[group_index].clone()
         });
         self.ops.push(op);
-        self.group_op_refs[group_index].push(self.ops.len() - 1);
+        self.render_groups[group_index].push(self.ops.len() - 1);
 
         out_reg
-    }
-
-    pub fn new_op(&mut self, t: &str, name: &str, group_index: usize) -> Option<usize> {
-        let o : Box<dyn DemOp> = match t {
-            "sin" => { Box::new(DoSin::new()) },
-            _     => { return None; },
-        };
-
-        self.add_op(o, name.to_string(), group_index)
     }
 
     pub fn set_reg(&mut self, idx: usize, v: f32) -> bool {
@@ -497,6 +347,35 @@ impl Simulator {
         if let Ok(ref mut m) = ext_scopes.try_lock() {
 //            use std::ops::DerefMut;
             std::mem::swap(&mut self.sample_row, &mut *m);
+        }
+    }
+
+    pub fn get_group_sample_buffers(&self, size: usize) -> Vec<[Vec<f32>; 2]> {
+        let mut v : Vec<[Vec<f32>; 2]> = Vec::with_capacity(self.op_groups.len());
+        for _ in self.op_groups.iter() {
+            let mut n : Vec<f32> = Vec::new();
+            n.resize(size, 0.0);
+            let mut n2 : Vec<f32> = Vec::new();
+            n2.resize(size, 0.0);
+            v.push([n, n2]);
+        }
+        v
+    }
+
+    pub fn render(&mut self, num_samples: usize, sample_offs: usize,
+                  grp_bufs: &mut Vec<[Vec<f32>; 2]>) {
+
+        for gb in grp_bufs.iter_mut() {
+            for i in sample_offs..(sample_offs + num_samples) {
+                gb[0][i] = 0.0;
+                gb[1][i] = 0.0;
+            }
+        }
+
+        for (ig, grp) in self.render_groups.iter().enumerate() {
+            for i in grp.iter() {
+                self.ops[*i].render(num_samples, sample_offs, ig, grp_bufs);
+            }
         }
     }
 }

@@ -1,5 +1,6 @@
 pub mod sample_row;
 pub mod signals;
+pub mod ops;
 
 //#[cfg(test)]
 //mod tests {
