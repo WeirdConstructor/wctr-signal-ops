@@ -374,7 +374,7 @@ impl Simulator {
         }
     }
 
-    pub fn render(&mut self, num_samples: usize, sample_offs: usize,
+    pub fn render_silence(&mut self, num_samples: usize, sample_offs: usize,
                   grp_bufs: &mut Vec<[Vec<f32>; 2]>) {
 
         for gb in grp_bufs.iter_mut() {
@@ -383,6 +383,12 @@ impl Simulator {
                 gb[1][i] = 0.0;
             }
         }
+    }
+
+    pub fn render(&mut self, num_samples: usize, sample_offs: usize,
+                  grp_bufs: &mut Vec<[Vec<f32>; 2]>) {
+
+        self.render_silence(num_samples, sample_offs, grp_bufs);
 
         for (ig, grp) in self.render_groups.iter().enumerate() {
             for i in grp.iter() {
