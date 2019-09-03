@@ -80,7 +80,7 @@ pub trait Op {
     fn exec(&mut self, t: f32, regs: &mut [f32]);
 
     fn does_render(&self) -> bool { false }
-    fn render(&mut self, _num_samples: usize, _offs: usize, _input_idx: usize, _bufs: &mut Vec<[Vec<f32>; 2]>) { }
+    fn render(&mut self, _num_samples: usize, _offs: usize, _input_idx: usize, _bufs: &mut Vec<Vec<f32>>) { }
     fn event(&mut self, _ev: &Event) { }
 
     fn input_count(&self) -> usize { self.io_spec(0).inputs.len() }
@@ -356,14 +356,12 @@ impl Simulator {
         }
     }
 
-    pub fn new_group_sample_buffers(&self, size: usize) -> Vec<[Vec<f32>; 2]> {
-        let mut v : Vec<[Vec<f32>; 2]> = Vec::with_capacity(self.op_groups.len());
+    pub fn new_group_sample_buffers(&self, size: usize) -> Vec<Vec<f32>> {
+        let mut v : Vec<Vec<f32>> = Vec::with_capacity(self.op_groups.len());
         for _ in self.op_groups.iter() {
             let mut n : Vec<f32> = Vec::new();
-            n.resize(size, 0.0);
-            let mut n2 : Vec<f32> = Vec::new();
-            n2.resize(size, 0.0);
-            v.push([n, n2]);
+            n.resize(size * 2, 0.0);
+            v.push(n);
         }
         v
     }
@@ -375,22 +373,22 @@ impl Simulator {
     }
 
     pub fn render_silence(&mut self, num_samples: usize, sample_offs: usize,
-                  grp_bufs: &mut Vec<[Vec<f32>; 2]>) {
+                  grp_bufs: &mut Vec<Vec<f32>>) {
 
         for gb in grp_bufs.iter_mut() {
-            for i in sample_offs..(sample_offs + num_samples) {
-                gb[0][i] = 0.0;
-                gb[1][i] = 0.0;
+            for i in sample_offs..(sample_offs + (num_samples * 2)) {
+                gb[i] = 0.0;
             }
         }
     }
 
     pub fn render(&mut self, num_samples: usize, sample_offs: usize,
-                  grp_bufs: &mut Vec<[Vec<f32>; 2]>) {
-
-        self.render_silence(num_samples, sample_offs, grp_bufs);
+                  grp_bufs: &mut Vec<Vec<f32>>) {
 
         for (ig, grp) in self.render_groups.iter().enumerate() {
+            for i in sample_offs..(sample_offs + (num_samples * 2)) {
+                grp_bufs[ig][i] = 0.0;
+            }
             for i in grp.iter() {
                 self.ops[*i].render(num_samples, sample_offs, ig, grp_bufs);
             }
