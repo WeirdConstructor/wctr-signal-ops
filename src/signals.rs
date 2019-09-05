@@ -140,7 +140,7 @@ impl SimulatorCommunicatorEndpoint {
         let r = self.rx.try_recv();
         match r {
             Ok(SimulatorUIInput::SetOpInput(idx, in_name, op_in, def)) => {
-                println!("SETINPUT: {}", in_name);
+                //d// println!("SETINPUT: {}", in_name);
                 if !sim.set_op_input(idx, &in_name, op_in, def) {
                     panic!(format!("Expected op input name {}/{}/{:?}", idx, in_name, op_in));
                 }
@@ -334,7 +334,7 @@ impl Simulator {
     }
 
     pub fn set_op_input(&mut self, idx: usize, input_name: &str, to: OpIn, as_default: bool) -> bool {
-        println!("SETSET {} {} {:?}", idx, input_name, to);
+        //d// println!("SETSET {} {} {:?}", idx, input_name, to);
         if idx >= self.ops.len() {
             return false;
         }
