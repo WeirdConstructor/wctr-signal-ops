@@ -65,9 +65,10 @@ pub struct OpIOSpec {
     pub output_regs:        Vec<usize>,
 }
 
+#[derive(Debug, PartialEq, Copy, Clone)]
 pub enum Event {
     NoteOn(u8),
-    NoteOff,
+    NoteOff(u8),
 }
 
 pub trait Op {
@@ -367,7 +368,9 @@ impl Simulator {
     }
 
     pub fn event(&mut self, group_idx: usize, event: &Event) {
+        if group_idx >= self.render_groups.len() { return; }
         for i in self.render_groups[group_idx].iter() {
+            //d// println!("EVENT: {:?}=>{}/{}", event, group_idx, *i);
             self.ops[*i].event(event);
         }
     }
