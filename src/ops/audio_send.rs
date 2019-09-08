@@ -65,11 +65,12 @@ impl Op for AudioSend {
         self.cur_vol_r = self.volume_r.calc(regs);
     }
 
-    fn render(&mut self, num_samples: usize, offs: usize, input_idx: usize, bufs: &mut Vec<Vec<f32>>)
-    {
+    fn render(&mut self, num_samples: usize, offs: usize, input_idx: usize, bufs: &mut Vec<Vec<f32>>) {
+        let vl = (self.cur_vol_l as f64) * (self.cur_vol_l as f64);
+        let vr = (self.cur_vol_r as f64) * (self.cur_vol_r as f64);
         for i in 0..num_samples {
-            bufs[self.out][offs + (i * 2)]     += self.cur_vol_l * bufs[input_idx][i * 2];
-            bufs[self.out][offs + (i * 2) + 1] += self.cur_vol_r * bufs[input_idx][i * 2 + 1];
+            bufs[self.out][offs + (i * 2)]     += (vl * (bufs[input_idx][i * 2] as f64)) as f32;
+            bufs[self.out][offs + (i * 2) + 1] += (vr * (bufs[input_idx][i * 2 + 1] as f64)) as f32;
         }
     }
 }
